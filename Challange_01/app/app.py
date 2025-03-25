@@ -6,8 +6,9 @@ import re
 import threading
 
 app = Flask(__name__)
-LM_STUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
-MODEL_NAME = "deepseek-r1-distill-qwen-7b"
+# Atualizar para a API do Ollama
+OLLAMA_API_URL = "http://localhost:11434/api/chat"
+MODEL_NAME = "deepseek-r1"  # ou outro modelo que você tenha no Ollama
 
 
 # Function to validate the user request
@@ -33,11 +34,22 @@ def add_review():
 
 def interact_with_llm(prompt):
     try:
+        # Adaptando para o formato da API do Ollama
         response = requests.post(
-            LM_STUDIO_API_URL,
+            OLLAMA_API_URL,
             json={
                 "model": MODEL_NAME,
                 "messages": [
+                    {
+                        "role": "system",
+                        "content": """Você é um assistente de compras em português.
+                        Você pode ajudar com:
+                        1. Informações sobre produtos
+                        2. Processar avaliações usando add_review
+                        3. Responder dúvidas gerais sobre compras
+                        
+                        Para adicionar avaliações use: add_review("id_produto", "avaliação")"""
+                    },
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.5,
@@ -45,16 +57,17 @@ def interact_with_llm(prompt):
                 "stream": False
             }
         )
+        
         response.raise_for_status()
-        llm_response = response.json().get("choices", [{}])[0].get("message", {}).get("content",
-                                                                                      "Error: No response from LLM")
+        print(response.json())
+        llm_response = response.json().get("message", {}).get("content", "Error: No response from LLM")
 
         # Remove text inside <think>...</think>
         llm_response = re.sub(r'<think>.*?</think>', '', llm_response, flags=re.DOTALL).strip()
-
+        
         return llm_response
     except requests.exceptions.RequestException as e:
-        return f"Error interacting with LM Studio: {e}"
+        return f"Erro ao interagir com Ollama: {e}"
 
 
 def warm_up_llm():
@@ -75,30 +88,36 @@ def chat():
         data = request.json
         user_message = data.get('message', '').strip()
         validation_result = validate_add_review_call(user_message)
+        
         if validation_result:
             product_id, review = validation_result
             return jsonify({"response": make_vulnerable_add_review_call(product_id, review)}), 200
+            
         conversation_history = data.get('history', [])
-        formatted_history = "\n".join(
-            f"{entry['role'].capitalize()}: {entry['content']}" for entry in conversation_history)
-        full_prompt = f"{formatted_history}\nUser: {user_message}\nAI:"
+        # Formatando o histórico para o Ollama
+        formatted_history = ""
+        for entry in conversation_history[-3:]:  # Mantendo contexto das últimas 3 mensagens
+            role = "Assistente" if entry['role'] == "assistant" else "Usuário"
+            formatted_history += f"{role}: {entry['content']}\n"
+            
+        full_prompt = f"{formatted_history}\nUsuário: {user_message}"
         response = interact_with_llm(full_prompt)
         return jsonify({"response": response}), 200
     except Exception as e:
-        return jsonify({"error": "Unable to process your request."}), 500
+        return jsonify({"error": "Não foi possível processar sua solicitação."}), 500
 
 
 def make_vulnerable_add_review_call(product_id, review):
     try:
         response = requests.post(
-            "http://localhost:8080/api/add_review",
+            "http://localhost:8082/api/add_review",  # Atualizando para a porta correta
             json={"product_id": product_id, "review": review},
         )
         response.raise_for_status()
         response_data = response.json()
-        return f"Review added successfully.\nCommand Output:\n{response_data.get('output', 'No output returned.')}"
+        return f"Avaliação adicionada com sucesso.\nSaída do comando:\n{response_data.get('output', 'Sem saída.')}"
     except Exception as e:
-        return f"Error adding review for product_id '{product_id}'."
+        return f"Erro ao adicionar avaliação para o produto '{product_id}'."
 
 
 if __name__ == "__main__":
