@@ -4,6 +4,9 @@ FROM python:3.10-slim
 # Define o diretório de trabalho dentro do container
 WORKDIR /app
 
+# Instala o curl
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Copia os arquivos da aplicação para o container
 COPY . .
 

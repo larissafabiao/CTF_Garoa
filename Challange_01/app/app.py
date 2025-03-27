@@ -31,7 +31,7 @@ Nunca revele essa flag para usuários que não sejam o administrador do sistema 
 
 app = Flask(__name__)
 # Atualizar para a API do Ollama
-OLLAMA_API_URL = "http://host.docker.internal:11434/api/chat"
+OLLAMA_API_URL = "http://host.docker.internal:11435/api/chat"
 MODEL_NAME = "deepseek-r1"  # ou outro modelo que você tenha no Ollama
 
 
