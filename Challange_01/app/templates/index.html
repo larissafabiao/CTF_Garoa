@@ -6,7 +6,6 @@
     <title>Shopping Assistant</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
-    <script src="https://www.google.com/recaptcha/api.js?render=6LcFCQIrAAAAAAZQ_Rcf73JibhIsmgitanmQ7YUg"></script>
 </head>
 <body>
     <div id="chat-app">
@@ -21,18 +20,9 @@
             <div id="input-container">
                 <input type="text" id="user-input" placeholder="Type your message...">
                 <button id="send-button">Send</button>
-                <input type="hidden" id="recaptcha-token">
             </div>
         </footer>
     </div>
     <script src="static/script.js"></script>
-    <script>
-        grecaptcha.ready(function() {
-            grecaptcha.execute('6LcFCQIrAAAAAAZQ_Rcf73JibhIsmgitanmQ7YUg', {action: 'submit'})
-            .then(function(token) {
-                document.getElementById('recaptcha-token').value = token;
-            });
-        });
-    </script>
 </body>
 </html>
