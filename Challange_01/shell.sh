@@ -29,7 +29,7 @@ fi
 
 # Build das imagens
 echo -e "${GREEN}Construindo imagens Docker...${NC}"
-docker build -t app_service:latest -f app/Dockerfile .
+docker build -t app_service:latest -f Dockerfile .
 
 # Deploy da stack
 echo -e "${GREEN}Deployando stack...${NC}"
