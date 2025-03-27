@@ -13,6 +13,8 @@ services:
       replicas: 4
       restart_policy:
         condition: on-failure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   ai_network:
