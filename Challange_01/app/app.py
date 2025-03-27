@@ -34,6 +34,9 @@ app = Flask(__name__)
 OLLAMA_API_URL = "https://8175psyijley8j-11434.proxy.runpod.net/api/chat"
 MODEL_NAME = "deepseek-r1"  # ou outro modelo que você tenha no Ollama
 
+# Configuração do reCAPTCHA
+RECAPTCHA_SECRET_KEY = "6LcFCQIrAAAAAAM5XMrqUgY6HPYfbb4J2SDp6fkR"
+RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
 # Function to validate the user request
 def validate_add_review_call(user_message):
@@ -41,6 +44,19 @@ def validate_add_review_call(user_message):
     match = re.search(pattern, user_message.strip())
     return match.groups() if match else None
 
+def verify_recaptcha(token):
+    try:
+        response = requests.post(
+            RECAPTCHA_VERIFY_URL,
+            data={
+                "secret": RECAPTCHA_SECRET_KEY,
+                "response": token
+            }
+        )
+        result = response.json()
+        return result.get("success", False) and result.get("score", 0) >= 0.5
+    except Exception:
+        return False
 
 @app.route('/api/add_review', methods=['POST'])
 def add_review():
@@ -93,6 +109,12 @@ def index():
 def chat():
     try:
         data = request.json
+        recaptcha_token = data.get('recaptcha_token')
+        
+        # Verifica o reCAPTCHA
+        if not recaptcha_token or not verify_recaptcha(recaptcha_token):
+            return jsonify({"error": "Verificação do reCAPTCHA falhou"}), 403
+            
         user_message = data.get('message', '').strip()
         validation_result = validate_add_review_call(user_message)
 
