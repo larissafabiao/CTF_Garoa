@@ -10,7 +10,7 @@ services:
     networks:
       - ai_network
     deploy:
-      replicas: 1
+      replicas: 4
       restart_policy:
         condition: on-failure
 
