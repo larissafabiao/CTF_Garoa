@@ -41,6 +41,17 @@ def validate_add_review_call(user_message):
     match = re.search(pattern, user_message.strip())
     return match.groups() if match else None
 
+def validate_search_product_call(user_message):
+    try:
+        pattern = r'^search_product\("(.*?)"\)$'
+        match = re.search(pattern, user_message.strip())
+        if match:
+            query = match.group(1)
+            return query
+    except Exception as e:
+        print(f"Error validating search_product call: {e}")
+    return None
+
 
 @app.route('/api/add_review', methods=['POST'])
 def add_review():
@@ -55,6 +66,56 @@ def add_review():
     except subprocess.CalledProcessError as e:
         return jsonify({"error": e.output}), 500
 
+@app.route('/api/search_product', methods=['POST'])
+def search_product():
+    """Challenge 3: Vulnerable Endpoint - Search for products in the catalog."""
+    query = request.json.get('query', '').strip()
+    base_dir = "/app/catalog/"
+    os.makedirs(base_dir, exist_ok=True)
+
+    try:
+        # Handle the 'all' query
+        if query.lower() == "all":
+            categories = os.listdir(base_dir)
+            categories_cleaned = [cat.replace(".txt", "") for cat in categories if cat.endswith(".txt")]
+            if not categories_cleaned:
+                return jsonify({"message": "No product categories available."}), 404
+            return jsonify({
+                "message": "Available product categories",
+                "categories": categories_cleaned
+            }), 200
+
+        # Check if the query matches a specific category in the catalog
+        catalog_file = os.path.join(base_dir, f"{query}.txt")
+        if os.path.isfile(catalog_file):
+            with open(catalog_file, 'r') as file:
+                products = file.read()
+            return jsonify({
+                "message": f"Search results for '{query}'",
+                "products": products
+            }), 200
+
+        # Allow directory traversal
+        full_path = os.path.abspath(os.path.join(base_dir, query))
+        if os.path.isdir(full_path):
+            dir_contents = os.listdir(full_path)
+            return jsonify({
+                "message": f"Directory contents for '{query}'",
+                "products": "\n".join(dir_contents)
+            }), 200
+        if os.path.isfile(full_path):
+            with open(full_path, 'r') as file:
+                products = file.read()
+            return jsonify({
+                "message": f"Search results for '{query}'",
+                "products": products
+            }), 200
+
+        return jsonify({"message": f"No file or directory found for query: '{query}'"}), 404
+
+    except Exception as e:
+        print(f"Error searching for products: {e}")
+        return jsonify({"error": str(e)}), 500
 
 def interact_with_llm(prompt):
     try:
@@ -94,24 +155,33 @@ def chat():
     try:
         data = request.json
         user_message = data.get('message', '').strip()
+
+        # Match search_product calls
+        if "search_product(" in user_message:
+            query = validate_search_product_call(user_message)
+            response_data = make_vulnerable_search_product_call(query)
+            if "categories" in response_data:
+                formatted_response = "\n".join(response_data["categories"])
+                return jsonify({"response": f"{response_data['message']}:\n{formatted_response}"}), 200
+            elif "products" in response_data:
+                return jsonify({"response": f"{response_data['message']}:\n{response_data['products']}"}), 200
+            else:
+                return jsonify({"response": response_data["message"]}), 200
+
+        # Match add_review calls
         validation_result = validate_add_review_call(user_message)
-
         if validation_result:
-            product_id, review = validation_result
-            return jsonify({"response": make_vulnerable_add_review_call(product_id, review)}), 200
+            product_name, review = validation_result
+            response_message = make_vulnerable_add_review_call(product_name, review)
+            return jsonify({"response": response_message}), 200
 
-        conversation_history = data.get('history', [])
-        # Formatando o histórico para o Ollama
-        formatted_history = ""
-        for entry in conversation_history[-3:]:  # Mantendo contexto das últimas 3 mensagens
-            role = "Assistente" if entry['role'] == "assistant" else "Usuário"
-            formatted_history += f"{role}: {entry['content']}\n"
-
-        full_prompt = f"{formatted_history}\nUsuário: {user_message}"
-        response = interact_with_llm(full_prompt)
+        # Default to interacting with AI
+        response = interact_with_llm(user_message)
         return jsonify({"response": response}), 200
+
     except Exception as e:
-        return jsonify({"error": "Não foi possível processar sua solicitação."}), 500
+        print(f"Error processing chat request: {e}")
+        return jsonify({"error": "Unable to process your request."}), 500
 
 
 def make_vulnerable_add_review_call(product_id, review):
@@ -127,6 +197,13 @@ def make_vulnerable_add_review_call(product_id, review):
     except Exception as e:
         return f"Erro ao adicionar avaliação para o produto '{product_id}'."
 
+def make_vulnerable_search_product_call(query):
+    try:
+        response = requests.post("http://localhost:8082/api/search_product", json={"query": query})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"message": f"Error searching for products with query '{query}'."}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8082, debug=True)
