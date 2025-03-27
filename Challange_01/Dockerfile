@@ -7,11 +7,17 @@ WORKDIR /app
 # Instala o curl
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copia os arquivos da aplicação para o container
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code to the container
 COPY . .
 
-# Instala as dependências
-RUN pip install --no-cache-dir -r requirements.txt
+# Create the `reviews` directory, set permissions, and ensure it is owned by the default user
+RUN mkdir -p reviews && chmod 777 reviews
+
+# Add the hidden flag in the system file /etc/flag
+RUN echo "HIK_VILLAGEAI_30e47959bc2877aa204b1bdf12170916" > /etc/flag
 
 # Cria o diretório para armazenar reviews (evita erro de diretório inexistente)
 RUN mkdir -p /app/reviews
