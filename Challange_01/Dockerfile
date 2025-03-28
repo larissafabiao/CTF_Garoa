@@ -7,11 +7,14 @@ WORKDIR /app
 # Instala o curl
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
+COPY . .
+
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code to the container
-COPY . .
+# COPY . .
 
 # Create the `reviews` directory, set permissions, and ensure it is owned by the default user
 RUN mkdir -p reviews && chmod 777 reviews
